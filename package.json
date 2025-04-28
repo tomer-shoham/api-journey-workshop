@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "name": "api-workshop",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "repository": "https://gitlab.com/fireblocks/shell/playground/api-workshop.git",
+  "author": "eranabir <eran@fireblocks.com>",
+  "scripts": {
+    "dev:dashboard": "cd leumi-dashboard && yarn dev",
+    "dev:server": "cd leumi-server && yarn dev",
+    "dev": "concurrently \"yarn dev:dashboard\" \"yarn dev:server\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "workspaces": [
+    "leumi-dashboard",
+    "leumi-server"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "root": true,
+  "ignorePatterns": ["dist"],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
+  "overrides": [
+    {
+      "files": ["**/*.{ts,tsx}"],
+      "parserOptions": {
+        "ecmaVersion": 2020
+      },
+      "env": {
+        "browser": true
+      },
+      "plugins": ["react-hooks", "react-refresh", "@typescript-eslint"],
+      "rules": {
+        "react-hooks/rules-of-hooks": "error",
+        "react-hooks/exhaustive-deps": "warn",
+        "react-refresh/only-export-components": ["warn", { "allowConstantExport": true }],
+        "@typescript-eslint/no-unused-vars": "off"
+      }
+    }
+  ]
+}
