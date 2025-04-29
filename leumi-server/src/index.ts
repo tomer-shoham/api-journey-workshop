@@ -5,6 +5,8 @@ import { DbClient } from "./db/db";
 import { MainModule } from "./modules/main.module";
 import { MainRouter } from "./router/main.router";
 
+export const db = new DbClient();
+
 (async () => {
   const app = express();
   app.use(
@@ -15,8 +17,6 @@ import { MainRouter } from "./router/main.router";
     })
   );
   app.use(express.json());
-  const db = new DbClient();
-
   await db.authenticate();
 
   //reset db
