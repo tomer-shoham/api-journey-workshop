@@ -8,11 +8,24 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - '5432:5432'
+      - '5432:5432' 
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - postgres_network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_container
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
+      PGADMIN_DEFAULT_PASSWORD: "admin"
+    ports:
+      - '80:80'  # pgAdmin will be accessible at http://localhost:80
+    networks:
+      - postgres_network
+    depends_on:
+      - postgres
 
 volumes:
   postgres_data:
