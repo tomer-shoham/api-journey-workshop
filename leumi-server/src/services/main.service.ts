@@ -20,10 +20,10 @@ export class MainService {
   init() {
     this.fireblocksService = new FireblocksService();
     this.schedulerService = new SchedulerService(this.fireblocksService);
-    this.webhookService = new WebhookService(this.fireblocksService);
     this.userService = new UserService();
     this.leumiWalletService = new LeumiWalletService(this.fireblocksService);
     this.assetService = new AssetService(this.fireblocksService, this.leumiWalletService);
+    this.webhookService = new WebhookService(this.fireblocksService, this.assetService);
     this.authService = new AuthService(this.userService, this.leumiWalletService);
     this.transactionService = new TransactionService(this.fireblocksService);
   }
