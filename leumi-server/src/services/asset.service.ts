@@ -33,10 +33,6 @@ export class AssetService {
   public async getAssets(leumiWalletId: string) {
     try {
       const test = await Asset.findAll({ where: { leumiWalletId: leumiWalletId } });
-      // const vaultAccount = await this.fireblocksService.fireblocksSDK.vaults.getVaultAccount({
-      // vaultAccountId: leumiWalletId
-      // });
-      // console.log("test1", test);
       return test;
     } catch (err: any) {
       const errorMessage = err.message || JSON.stringify(err);
@@ -117,9 +113,40 @@ export class AssetService {
     }
   }
 
-  public async withdrawal(leumiWalletId: string, assetId: string, amount: number, address: string) {
+  public async withdrawal(leumiWalletId: string, assetId: string, amount: number, destinationAddress: string) {
+    const transactionScope = await db.sequelize.transaction();
     try {
+      const asset = await Asset.findOne({ where: { leumiWalletId, assetId } });
+      if (!asset || !asset.amount || asset.amount < amount) {
+        throw new Error("Insufficient funds or asset not found");
+      }
+      const txResponse = await this.fireblocksService.fireblocksSDK.transactions.createTransaction({
+        transactionRequest: {
+          assetId,
+          amount: amount.toString(),
+          source: { type: "VAULT_ACCOUNT", id: asset.vaultId },
+          destination: { type: "ONE_TIME_ADDRESS", oneTimeAddress: { address: destinationAddress } },
+          note: `User withdrawal for Leumi wallet ${leumiWalletId}`
+        }
+      });
+      await Transaction.create(
+        {
+          source: asset.vaultId,
+          destination: destinationAddress,
+          amount,
+          assetId,
+          leumiWalletId,
+          id: txResponse.data.id
+        },
+        { transaction: transactionScope }
+      );
+
+      await asset.decrement({ amount }, { transaction: transactionScope });
+
+      await transactionScope.commit();
+      return { success: true, txId: txResponse.data.id };
     } catch (err) {
+      await transactionScope.rollback();
       throw new Error(`Error withdrawal asset - ${(err as any).message || JSON.stringify(err)}`);
     }
   }
@@ -175,71 +202,47 @@ export class AssetService {
     try {
       const asset = await Asset.findOne({
         where: {
-          assetId: assetId,
-          leumiWalletId: leumiWalletId
-        }
+          assetId,
+          leumiWalletId
+        },
+        transaction: transactionScope
       });
 
-      const leumiWallet = await LeumiWallet.findOne({
-        where: {
-          id: leumiWalletId
-        }
+      const leumiWallet = await LeumiWallet.findByPk(leumiWalletId, {
+        transaction: transactionScope
       });
-      if (!asset || !leumiWallet) throw new Error("error getting asset data from db");
+
+      if (!asset || !leumiWallet) {
+        throw new Error("Asset or wallet not found in DB");
+      }
 
       const lwBalance = leumiWallet.usdBalance;
       const assetCost = rates[assetId] * amount;
 
-      if (lwBalance < assetCost) throw new Error("Leumi Wallet balance too low");
-      console.log("balance", assetId, lwBalance, assetCost);
-      console.log("asset check", asset, asset.address);
-      await this.leumiWalletService.updateLeumiWallet(leumiWalletId, { usdBalance: lwBalance - assetCost });
-
-      if (assetId === "BTC_TEST") {
-        const dbTx = await Transaction.create({
-          source: treasuryVaultId,
-          destination: asset.address,
-          amount: amount,
-          assetId: assetId,
-          leumiWalletId: leumiWalletId
-        });
-        console.log("dbTx id", dbTx.id, asset.address);
-
-        const transactionParams: TransactionsApiCreateTransactionRequest = {
-          transactionRequest: {
-            source: {
-              type: TransferPeerPathType.VaultAccount,
-              id: treasuryVaultId
-            },
-            destination: {
-              type: TransferPeerPathType.OneTimeAddress,
-              oneTimeAddress: { address: asset.assetId }
-            },
-            assetId: "BTC_TEST",
-            amount: amount.toString(),
-            note: "Buying BTC_TEST",
-            externalTxId: dbTx.id
-          }
-        };
-
-        console.log(asset.address, typeof asset.address);
-
-        const fbTransactionResponse =
-          await this.fireblocksService.fireblocksSDK.transactions.createTransaction(transactionParams);
-        console.log("Transaction initiated:", fbTransactionResponse.data);
-        await transactionScope.commit();
-      } else {
-        const dbTx = await Transaction.create(
-          {
-            source: "FundingVault",
-            destination: asset.vaultId,
-            amount: amount,
-            assetId: assetId,
-            leumiWalletId: leumiWalletId
-          },
-          { transaction: transactionScope }
-        );
+      if (lwBalance < assetCost) {
+        throw new Error("Insufficient USD balance in Leumi Wallet");
       }
+
+      leumiWallet.usdBalance -= assetCost;
+      await leumiWallet.save({ transaction: transactionScope });
+
+      asset.amount = (asset.amount || 0) + amount;
+      await asset.save({ transaction: transactionScope });
+
+      await Transaction.create(
+        {
+          source: "USD Balance",
+          destination: asset.assetId,
+          amount: amount,
+          assetId: asset.assetId,
+          leumiWalletId: leumiWalletId
+        },
+        { transaction: transactionScope }
+      );
+
+      await transactionScope.commit();
+
+      return { success: true, message: `Bought ${amount} ${assetId} for $${assetCost}` };
     } catch (err) {
       await transactionScope.rollback();
       throw new Error(`Error buying asset - ${(err as any).message || JSON.stringify(err)}`);
