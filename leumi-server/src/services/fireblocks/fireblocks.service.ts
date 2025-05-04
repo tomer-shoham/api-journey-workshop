@@ -1,4 +1,4 @@
-import { Fireblocks } from "@fireblocks/ts-sdk";
+import { BasePath, Fireblocks } from "@fireblocks/ts-sdk";
 import { config } from "../../config";
 import fs from "fs";
 import path from "path";
@@ -13,6 +13,7 @@ export class FireblocksService {
       .join("\n");
     this._fireblocksSDK = new Fireblocks({
       apiKey: config.fireblocks.API_KEY,
+      basePath: BasePath.US,
       secretKey: privateKey
     });
   }
