@@ -14,7 +14,7 @@ export class TransactionService {
       console.log("transactions", transactions);
       return transactions.map(transaction => transaction.toJSON());
     } catch (err) {
-      throw new Error(`Error fetching TXs - ${(err as any).message || JSON.stringify(err)}`);
+      console.error(`Error fetching TXs - ${(err as any).message || JSON.stringify(err)}`);
     }
   }
 }

@@ -29,7 +29,6 @@ export class LeumiWalletService {
       return updatedWallet.toJSON();
     } catch (error) {
       console.error("Error updating Leumi Wallet:", error);
-      throw new Error("Failed to update Leumi Wallet");
     }
   }
 }

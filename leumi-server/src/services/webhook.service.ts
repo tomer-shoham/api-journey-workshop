@@ -16,6 +16,7 @@ export class WebhookService {
         tx.amountInfo &&
         tx.amountInfo?.amount
       ) {
+        console.log("webhook tx", tx);
         const vaultId = tx.destination?.id;
         const assetId = tx.assetId;
         const amount = parseFloat(tx.amountInfo.amount);
@@ -32,7 +33,7 @@ export class WebhookService {
         console.log("handleWebhook - done");
       }
     } catch (err) {
-      throw new Error(`Error handling webhook - ${(err as any).message || JSON.stringify(err)}`);
+      console.error(`Error handling webhook - ${(err as any).message || JSON.stringify(err)}`);
     }
   }
 }

@@ -36,7 +36,7 @@ export class AssetService {
       return test;
     } catch (err: any) {
       const errorMessage = err.message || JSON.stringify(err);
-      throw new Error(`get assets error - ${errorMessage}`);
+      console.error(`get assets error - ${errorMessage}`);
     }
   }
 
@@ -50,7 +50,7 @@ export class AssetService {
       });
       return asset ? asset.toJSON() : null;
     } catch (err) {
-      throw new Error(`Error getting asset ${assetId} - ${(err as any).message || JSON.stringify(err)}`);
+      console.error(`Error getting asset ${assetId} - ${(err as any).message || JSON.stringify(err)}`);
     }
   }
 
@@ -60,12 +60,12 @@ export class AssetService {
       const leumiWallet = await this.leumiWalletService.getLeumiWallet(leumiWalletId);
       const leumiWalletAssets = await this.getAssets(leumiWalletId);
 
-      const assetList = leumiWalletAssets.map(asset => {
+      const assetList = leumiWalletAssets?.map(asset => {
         const { assetId: currentAssetId, address, vaultId } = asset.dataValues;
         return { assetId: currentAssetId, address, vaultId };
       });
 
-      if (assetList.some(asst => asst.assetId === assetId)) return {}; // Asset already exists
+      if (assetList?.some(asst => asst.assetId === assetId)) return {}; // Asset already exists
 
       const assetCreationConfig = {
         address: "",
@@ -87,7 +87,7 @@ export class AssetService {
         assetCreationConfig["address"] = newAddressResponse.data.address || "";
         assetCreationConfig["vaultId"] = treasuryVaultId;
       } else {
-        let vaultId = assetList.find(asst => asst.assetId !== "BTC_TEST")?.vaultId || "";
+        let vaultId = assetList?.find(asst => asst.assetId !== "BTC_TEST")?.vaultId || "";
         if (!vaultId) {
           const newVault = await this.fireblocksService.fireblocksSDK.vaults.createVaultAccount({
             createVaultAccountRequest: { name: `${leumiWallet?.user.name}'s Vault` }
@@ -109,7 +109,7 @@ export class AssetService {
       return newAsset.toJSON();
     } catch (err) {
       await transactionScope.rollback();
-      throw new Error(`Error creating asset - ${(err as any).message || JSON.stringify(err)}`);
+      console.error(`Error creating asset - ${(err as any).message || JSON.stringify(err)}`);
     }
   }
 
@@ -147,7 +147,7 @@ export class AssetService {
       return { success: true, txId: txResponse.data.id };
     } catch (err) {
       await transactionScope.rollback();
-      throw new Error(`Error withdrawal asset - ${(err as any).message || JSON.stringify(err)}`);
+      console.error(`Error withdrawal asset - ${(err as any).message || JSON.stringify(err)}`);
     }
   }
 
@@ -193,7 +193,7 @@ export class AssetService {
       return updatedAsset.toJSON();
     } catch (err) {
       await transactionScope.rollback();
-      throw new Error(`Error deposit asset - ${(err as any).message || JSON.stringify(err)}`);
+      console.error(`Error deposit asset - ${(err as any).message || JSON.stringify(err)}`);
     }
   }
 
@@ -245,7 +245,7 @@ export class AssetService {
       return { success: true, message: `Bought ${amount} ${assetId} for $${assetCost}` };
     } catch (err) {
       await transactionScope.rollback();
-      throw new Error(`Error buying asset - ${(err as any).message || JSON.stringify(err)}`);
+      console.error(`Error buying asset - ${(err as any).message || JSON.stringify(err)}`);
     }
   }
 }
