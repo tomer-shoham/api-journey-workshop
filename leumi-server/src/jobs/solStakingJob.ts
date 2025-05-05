@@ -13,11 +13,10 @@ export function startSolStakingJob() {
   cron.schedule(
     "0 12 * * *",
     async () => {
-      // This sets the job to run daily at noon
       try {
         if (depositVaultId) {
-            console.log("Sol Staking job started");
-            const solAsset = await fireblocksService.fireblocksSDK.vaults.getVaultAccountAsset({
+          console.log("Sol Staking job started");
+          const solAsset = await fireblocksService.fireblocksSDK.vaults.getVaultAccountAsset({
             vaultAccountId: depositVaultId,
             assetId: "SOL_TEST"
           });
@@ -30,9 +29,10 @@ export function startSolStakingJob() {
             const stakeRequest = {
               stakeRequest: {
                 vaultAccountId: depositVaultId,
+                assetId: "SOL_TEST",
                 providerId: StakingProvider.Kiln,
                 stakeAmount: availableForStaking.toString(),
-                txNote: "Staking SOL through Fireblocks",
+                txNote: "Leumi staking SOL through Fireblocks",
                 feeLevel: FeeLevel.Medium
               },
               chainDescriptor: ChainDescriptor.SolTest,
