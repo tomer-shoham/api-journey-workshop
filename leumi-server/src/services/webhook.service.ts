@@ -14,10 +14,11 @@ export class WebhookService {
         type === "TRANSACTION_STATUS_UPDATED" &&
         tx.status === "COMPLETED" &&
         tx.amountInfo &&
-        tx.amountInfo?.amount
+        tx.amountInfo?.amount &&
+        tx.destination?.id
       ) {
         console.log("webhook tx", tx);
-        const vaultId = tx.destination?.id;
+        const vaultId = tx.destination.id;
         const assetId = tx.assetId;
         const amount = parseFloat(tx.amountInfo.amount);
         console.log("web hook service", vaultId, assetId, amount);
