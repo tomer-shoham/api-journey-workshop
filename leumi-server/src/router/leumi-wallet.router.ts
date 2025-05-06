@@ -10,6 +10,7 @@ export class LeumiWalletRouter {
     assetModule: AssetModule,
     transactionModule: TransactionModule
   ) {
+    this.router.get("/reconcile", (req, res) => leumiWalletController.reconcile(req, res));
     this.router.get("/:leumiWalletId", (req, res) => leumiWalletController.getLeumiWallet(req, res));
     this.router.use("/:leumiWalletId/assets", assetModule.assetRouter.router);
     this.router.use("/:leumiWalletId/transactions", transactionModule.transactionRouter.router);
