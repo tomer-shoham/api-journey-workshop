@@ -13,7 +13,7 @@ const withdrawalsVaultId = process.env.WITHDRAWALS_VAULT_ID;
 
 export function startRebalanceJob() {
   cron.schedule(
-    "0 * * * *",
+    "0 2 * * *",
     async () => {
       try {
         if (depositVaultId && withdrawalsVaultId) {
@@ -67,7 +67,7 @@ export function startRebalanceJob() {
     },
     {
       scheduled: true,
-      timezone: "America/New_York"
+      timezone: "Asia/Jerusalem"
     }
   );
 }

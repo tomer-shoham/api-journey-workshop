@@ -50,7 +50,7 @@ export function startSolStakingJob() {
     },
     {
       scheduled: true,
-      timezone: "America/New_York"
+      timezone: "Asia/Jerusalem"
     }
   );
 }
