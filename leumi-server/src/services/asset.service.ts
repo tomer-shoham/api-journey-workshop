@@ -1,5 +1,4 @@
 import dotenv from "dotenv";
-import { TransactionsApiCreateTransactionRequest, TransferPeerPathType } from "@fireblocks/ts-sdk";
 
 import { Asset } from "../db/models/Asset.model";
 import { LeumiWalletService } from "./leumi-wallet.service";
@@ -23,12 +22,24 @@ const rates = {
 };
 
 const treasuryVaultId = process.env.DEPOSIT_OMNIBUS_VAULT_ID;
+const withdrawalsVaultId = process.env.WITHDRAWALS_VAULT_ID;
 
 export class AssetService {
   constructor(
     private readonly fireblocksService: FireblocksService,
     private readonly leumiWalletService: LeumiWalletService
   ) {}
+
+  public async getFbVaultAccount(vaultAccountId: string) {
+    try {
+      const fireblocksBalances = await this.fireblocksService.fireblocksSDK.vaults.getVaultAccount({ vaultAccountId });
+      console.log("getFbVaultAccount", fireblocksBalances.data);
+      return fireblocksBalances.data;
+    } catch (err: any) {
+      const errorMessage = err.message || JSON.stringify(err);
+      console.error(`getFbVaultAccount error - ${errorMessage}`);
+    }
+  }
 
   public async getAssets(leumiWalletId: string) {
     try {
@@ -115,39 +126,56 @@ export class AssetService {
 
   public async withdrawal(leumiWalletId: string, assetId: string, amount: number, destinationAddress: string) {
     const transactionScope = await db.sequelize.transaction();
+    let transactionRecord;
     try {
-      const asset = await Asset.findOne({ where: { leumiWalletId, assetId } });
+      const asset = await Asset.findOne({
+        where: { leumiWalletId, assetId },
+        transaction: transactionScope,
+        lock: transactionScope.LOCK.UPDATE
+      });
       if (!asset || !asset.amount || asset.amount < amount) {
         throw new Error("Insufficient funds or asset not found");
       }
-      const txResponse = await this.fireblocksService.fireblocksSDK.transactions.createTransaction({
-        transactionRequest: {
-          assetId,
-          amount: amount.toString(),
-          source: { type: "VAULT_ACCOUNT", id: asset.vaultId },
-          destination: { type: "ONE_TIME_ADDRESS", oneTimeAddress: { address: destinationAddress } },
-          note: `User withdrawal for Leumi wallet ${leumiWalletId}`
-        }
-      });
-      await Transaction.create(
+      await asset.decrement({ amount }, { transaction: transactionScope });
+
+      const isUTXO = asset.assetId === "BTC_TEST";
+
+      transactionRecord = await Transaction.create(
         {
-          source: asset.vaultId,
+          source: withdrawalsVaultId,
           destination: destinationAddress,
           amount,
           assetId,
-          leumiWalletId,
-          id: txResponse.data.id
+          leumiWalletId
         },
         { transaction: transactionScope }
       );
 
-      await asset.decrement({ amount }, { transaction: transactionScope });
+      const txResponse = await this.fireblocksService.fireblocksSDK.transactions.createTransaction({
+        transactionRequest: {
+          assetId,
+          amount: amount.toString(),
+          source: { type: "VAULT_ACCOUNT", id: withdrawalsVaultId },
+          destination: { type: "ONE_TIME_ADDRESS", oneTimeAddress: { address: destinationAddress } },
+          externalTxId: `${leumiWalletId}_${transactionRecord.id}`,
+          note: `User withdrawal for Leumi wallet ${leumiWalletId}`
+        }
+      });
 
       await transactionScope.commit();
       return { success: true, txId: txResponse.data.id };
     } catch (err) {
       await transactionScope.rollback();
+      if (transactionRecord?.id) {
+        try {
+          await this.fireblocksService.fireblocksSDK.transactions.cancelTransaction({ txId: transactionRecord.id });
+        } catch (cancelErr) {
+          console.warn(`Fireblocks cancellation failed for tx ${transactionRecord.id}`);
+        }
+      }
+
       console.error(`Error withdrawal asset - ${(err as any).message || JSON.stringify(err)}`);
+      return { success: false, error: (err as any).message || "Withdrawal failed" };
     }
   }
 
@@ -163,11 +191,11 @@ export class AssetService {
       const leumiWallet = await LeumiWallet.findByPk(leumiWalletId);
       if (!asset || !leumiWallet) throw new Error("error getting asset data from db");
 
-      let txId: string | undefined;
       const isUTXO = asset.assetId === "BTC_TEST";
 
       if (!isUTXO) {
         // Sweep ETH or SOL to treasury
+        await asset.decrement({ amount });
         await this.fireblocksService.fireblocksSDK.transactions.createTransaction({
           transactionRequest: {
             assetId: asset.assetId,
@@ -179,16 +207,18 @@ export class AssetService {
         });
       }
 
-      await Transaction.create({
-        source: isUTXO ? "external" : asset.vaultId,
-        destination: treasuryVaultId,
-        amount,
-        assetId: asset.assetId,
-        leumiWalletId,
-        id: txId
-      });
+      await Transaction.create(
+        {
+          source: isUTXO ? "external" : asset.vaultId,
+          destination: isUTXO ? asset.address : asset.vaultId,
+          amount,
+          assetId: asset.assetId,
+          leumiWalletId
+        },
+        { transaction: transactionScope }
+      );
 
-      const updatedAsset = await asset.increment({ amount });
+      const updatedAsset = await asset.increment({ amount }, { transaction: transactionScope });
       await transactionScope.commit();
       return updatedAsset.toJSON();
     } catch (err) {
