@@ -33,8 +33,8 @@ export class WebhookService {
         await this.assetService.deposit(leumiWallet.id, assetId, amount);
         console.log("handleWebhook - done");
       }
-    } catch (err) {
-      console.error(`Error handling webhook - ${(err as any).message || JSON.stringify(err)}`);
+    } catch (err: any) {
+      console.error(`Error handling webhook - ${err.message || JSON.stringify(err)}`);
     }
   }
 }
