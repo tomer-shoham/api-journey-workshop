@@ -6,6 +6,8 @@ import { FireblocksService } from "./fireblocks/fireblocks.service";
 import { Transaction } from "../db/models/Transaction.model";
 import { db } from "..";
 import { LeumiWallet } from "../db/models/LeumiWallet.model";
+import pollFbTxStatus from "../utils/pullTxStatus";
+import { DestinationTransferPeerPath } from "@fireblocks/ts-sdk";
 
 dotenv.config();
 
@@ -33,7 +35,6 @@ export class AssetService {
   public async getFbVaultAccount(vaultAccountId: string) {
     try {
       const fireblocksBalances = await this.fireblocksService.fireblocksSDK.vaults.getVaultAccount({ vaultAccountId });
-      console.log("getFbVaultAccount", fireblocksBalances.data);
       return fireblocksBalances.data;
     } catch (err: any) {
       const errorMessage = err.message || JSON.stringify(err);
@@ -43,8 +44,8 @@ export class AssetService {
 
   public async getAssets(leumiWalletId: string) {
     try {
-      const test = await Asset.findAll({ where: { leumiWalletId: leumiWalletId } });
-      return test;
+      const assets = await Asset.findAll({ where: { leumiWalletId: leumiWalletId } });
+      return assets;
     } catch (err: any) {
       const errorMessage = err.message || JSON.stringify(err);
       console.error(`get assets error - ${errorMessage}`);
@@ -151,16 +152,33 @@ export class AssetService {
         { transaction: transactionScope }
       );
 
+      const destination: DestinationTransferPeerPath = isUTXO
+        ? {
+            type: "ONE_TIME_ADDRESS",
+            oneTimeAddress: { address: destinationAddress }
+          }
+        : {
+            type: "VAULT_ACCOUNT",
+            id: destinationAddress
+          };
       const txResponse = await this.fireblocksService.fireblocksSDK.transactions.createTransaction({
         transactionRequest: {
           assetId,
           amount: amount.toString(),
           source: { type: "VAULT_ACCOUNT", id: withdrawalsVaultId },
-          destination: { type: "ONE_TIME_ADDRESS", oneTimeAddress: { address: destinationAddress } },
+          destination: destination,
           externalTxId: `${leumiWalletId}_${transactionRecord.id}`,
           note: `User withdrawal for Leumi wallet ${leumiWalletId}`
         }
       });
+      const txId = txResponse.data.id;
+      if (!txId) {
+        throw new Error("Fireblocks transaction error");
+      }
+      const finalStatus = await pollFbTxStatus(txId);
+      if (finalStatus !== "COMPLETED") {
+        throw new Error(`Fireblocks transaction failed or was dropped (status: ${finalStatus})`);
+      }
 
       await transactionScope.commit();
       return { success: true, txId: txResponse.data.id };
@@ -245,6 +263,7 @@ export class AssetService {
       if (!asset || !leumiWallet) {
         throw new Error("Asset or wallet not found in DB");
       }
+      const isUTXO = asset.assetId === "BTC_TEST";
 
       const lwBalance = leumiWallet.usdBalance;
       const assetCost = rates[assetId] * amount;
@@ -262,7 +281,7 @@ export class AssetService {
       await Transaction.create(
         {
           source: "USD Balance",
-          destination: asset.assetId,
+          destination: isUTXO ? asset.address : asset.vaultId,
           amount: amount,
           assetId: asset.assetId,
           leumiWalletId: leumiWalletId
