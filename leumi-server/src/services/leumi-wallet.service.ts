@@ -9,12 +9,16 @@ export class LeumiWalletService {
     return LeumiWallet.create({ userId });
   }
   public async getLeumiWallet(leumiWalletId: string) {
-    return LeumiWallet.findOne({
-      where: {
-        id: leumiWalletId
-      },
-      include: [User]
-    });
+    try {
+      return LeumiWallet.findOne({
+        where: {
+          id: leumiWalletId
+        },
+        include: [User]
+      });
+    } catch (error) {
+      console.error("Error get Leumi Wallet:", error);
+    }
   }
   public async updateLeumiWallet(leumiWalletId: string, fieldsToUpdate: Partial<LeumiWalletType>) {
     try {
