@@ -6,6 +6,7 @@ import { MainModule } from "./modules/main.module";
 import { MainRouter } from "./router/main.router";
 import { startRebalanceJob } from "./jobs/rebalanceJob";
 import { startSolStakingJob } from "./jobs/solStakingJob";
+import { startReconciliationJob } from "./jobs/reconcileBalancesJob";
 
 export const db = new DbClient();
 
@@ -33,6 +34,8 @@ export const db = new DbClient();
   startRebalanceJob();
 
   startSolStakingJob();
+
+  startReconciliationJob();
 
   app.listen(config.port, () => {
     console.log(`🚀 Leumi Server running on PORT ${config.port}`);
