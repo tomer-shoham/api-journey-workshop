@@ -6,9 +6,7 @@ export class AssetController {
 
   public async getVaultAccount(req: Request, res: Response) {
     try {
-      console.log("getVaultAccount");
       const vaultAccountId = String(req.params.vaultAccountId);
-      console.log("getVaultAccount", vaultAccountId);
       const vaultAccount = await this.assetService.getFbVaultAccount(vaultAccountId);
       res.status(200).json(vaultAccount);
     } catch (err: any) {
@@ -23,7 +21,6 @@ export class AssetController {
   public async getAssets(req: Request, res: Response) {
     try {
       const leumiWalletId = req.params.leumiWalletId;
-      console.log("leumiWalletId", leumiWalletId);
       const assets = await this.assetService.getAssets(leumiWalletId);
       res.status(200).json(assets);
     } catch (err: any) {
@@ -34,6 +31,7 @@ export class AssetController {
       });
     }
   }
+
   public async getAsset(req: Request, res: Response) {
     try {
       const { leumiWalletId, assetId } = req.params;
@@ -94,6 +92,7 @@ export class AssetController {
       });
     }
   }
+
   public async buy(req: Request, res: Response) {
     try {
       const leumiWalletId = req.params.leumiWalletId;
